@@ -1,0 +1,534 @@
+import React, { useState, useEffect } from "react";  
+import { ArrowLeft, Calendar, BarChart2, Dumbbell, LayoutDashboard, ChevronDown, ChevronUp } from "lucide-react";  
+import {  
+  LineChart,  
+  Line,  
+  XAxis,  
+  YAxis,  
+  CartesianGrid,  
+  Tooltip,  
+  Legend  
+} from "recharts";  
+
+/* ---------------------------  
+ * 示例三年数据(与原逻辑相同)  
+ * --------------------------- */  
+const threeYearData = Array.from({ length: 36 }).map((_, index) => {  
+  const monthLabel = `第${index + 1}个月`;  
+  const numberOfDays = 30;   
+  const numberOfWeeks = 4;  
+
+  // 每周训练  
+  const weekPlans = Array.from({ length: numberOfWeeks }).map((_, wIndex) => {  
+    return {  
+      weekLabel: `第${wIndex + 1}周`,  
+      days: [  
+        {  
+          dayTitle: "胸 + 三头 + 有氧",  
+          machineUsed: "胸推机、龙门架绳索、跑步机",  
+          tips: "保持核心收紧，注意肘角度；有氧20-30分钟。"  
+        },  
+        {  
+          dayTitle: "背 + 二头 + 有氧",  
+          machineUsed: "高位下拉、坐姿划船、椭圆机",  
+          tips: "挺胸收肩，集中背部发力；椭圆机15-20分钟。"  
+        },  
+        {  
+          dayTitle: "腿 + 臀 + 宽距深蹲",  
+          machineUsed: "史密斯机、腿举机",  
+          tips: "背部挺直，核心紧绷，避免膝盖内扣。"  
+        },  
+        {  
+          dayTitle: "肩 + 上肢综合",  
+          machineUsed: "哑铃推肩/侧平举、史密斯机耸肩",  
+          tips: "注意肩袖稳定，不要过度耸肩。"  
+        },  
+        {  
+          dayTitle: "灵活安排/休息",  
+          machineUsed: "可做核心或拉伸放松",  
+          tips: "视个人状态而定，适度休息也重要。"  
+        }  
+      ]  
+    };  
+  });  
+
+  // 每日两餐  
+  const dailyMeals = Array.from({ length: numberOfDays }).map((_, dayIndex) => {  
+    const dayNum = dayIndex + 1;  
+    const lunchOptions = [  
+      "鸡胸肉 + 清炒西兰花 + 糙米饭",  
+      "牛肉片 + 白灼青菜 + 全麦饭",  
+      "鸡胸肉 + 西红柿炒蛋 + 藜麦饭",  
+      "牛肉片 + 白灼油菜 + 红薯"  
+    ];  
+    const dinnerOptions = [  
+      "三文鱼 + 蒜蓉菠菜 + 半碗糙米饭",  
+      "虾仁 + 生菜沙拉(低油) + 红薯",  
+      "鸡胸肉 + 烤蔬菜 + 全麦面包",  
+      "牛肉粒 + 清炒黄瓜 + 木耳炒蛋"  
+    ];  
+    const cookingTips = [  
+      "大火快炒蔬菜, 保持脆感。",  
+      "肉类腌10分钟再煎, 少油少盐。",  
+      "米饭提前泡, 缩短烹饪时间。",  
+      "红薯烤30分钟即可, 更健康。"  
+    ];  
+    const randomLunch = lunchOptions[Math.floor(Math.random() * lunchOptions.length)];  
+    const randomDinner = dinnerOptions[Math.floor(Math.random() * dinnerOptions.length)];  
+    const randomTip = cookingTips[Math.floor(Math.random() * cookingTips.length)];  
+
+    return {  
+      dayLabel: `Day ${dayNum}`,  
+      lunch: randomLunch,  
+      dinner: randomDinner,  
+      detail: `做法：${randomTip}`  
+    };  
+  });  
+
+  const weeklyGroceries = Array.from({ length: numberOfWeeks }).map((_, wIndex) => {  
+    return {  
+      label: `第${wIndex + 1}周需购买：`,  
+      items: [  
+        "鸡胸肉/牛肉/三文鱼/虾仁(任选2-3种)",  
+        "西兰花/青菜/黄瓜/番茄等蔬菜",  
+        "糙米/全麦面包/红薯/藜麦(任选2种主食)",  
+        "鸡蛋/酸奶/牛奶(补充蛋白)",  
+        "调料：低盐酱油、黑胡椒、橄榄油"  
+      ]  
+    };  
+  });  
+
+  return {  
+    monthLabel,  
+    weekPlans,  
+    dailyMeals,  
+    weeklyGroceries  
+  };  
+});  
+
+/* ---------------------------  
+ * 主应用组件  
+ * --------------------------- */  
+export default function ThreeYearFitnessApp() {  
+  /* ----------- State ----------- */  
+  const [activeTab, setActiveTab] = useState("overview");   
+  // 训练/饮食 所选月份  
+  const [selectedTrainingMonth, setSelectedTrainingMonth] = useState(0);  
+  const [selectedDietMonth, setSelectedDietMonth] = useState(0);  
+
+  // 折叠/展开索引 (以 "week-0" "week-1" 等字符串管理)  
+  const [openSections, setOpenSections] = useState({});  
+
+  // 体重记录  
+  const [weightRecords, setWeightRecords] = useState([]);  
+  const [todayWeight, setTodayWeight] = useState("");  
+
+  // 初始化LocalStorage  
+  useEffect(() => {  
+    const dataString = localStorage.getItem("myWeightRecords");  
+    if (dataString) {  
+      setWeightRecords(JSON.parse(dataString));  
+    }  
+  }, []);  
+
+  /* ----------- Methods ----------- */  
+  const toggleSection = (key) => {  
+    setOpenSections((prev) => ({  
+      ...prev,  
+      [key]: !prev[key]  
+    }));  
+  };  
+
+  const handleAddWeight = () => {  
+    if (!todayWeight) {  
+      alert("请输入体重数值");  
+      return;  
+    }  
+    const dateString = new Date().toLocaleString("zh-CN", { hour12: false });  
+    const newRecords = [...weightRecords, { date: dateString, weight: parseFloat(todayWeight) }];  
+    setWeightRecords(newRecords);  
+    localStorage.setItem("myWeightRecords", JSON.stringify(newRecords));  
+    setTodayWeight("");  
+  };  
+
+  const getChartData = () => {  
+    return weightRecords.map((r) => {  
+      const parts = r.date.split(" ")[0].split("/");  
+      const label = parts.slice(-2).join("/");  
+      return { name: label, weight: r.weight };  
+    });  
+  };  
+
+  const handleRemind = () => {  
+    alert("记得今天锻炼+补充蛋白哟!");  
+  };  
+
+  const monthList = Array.from({ length: 36 }).map((_, i) => ({  
+    label: `第${i + 1}个月`,  
+    value: i  
+  }));  
+
+  const currentTrainingData = threeYearData[selectedTrainingMonth];  
+  const currentDietData = threeYearData[selectedDietMonth];  
+
+  /* ----------- Render Block ----------- */  
+  return (  
+    <div className="min-h-screen flex flex-col bg-gray-50">  
+      {/* 顶部标题栏 */}  
+      <header className="bg-teal-600 text-white p-4 flex items-center justify-center">  
+        <h1 className="text-lg font-semibold">三年健身追踪</h1>  
+      </header>  
+
+      {/* 主体内容区 */}  
+      <main className="flex-1 overflow-auto p-3">  
+        {/* 通过 activeTab 切换不同页面 */}  
+        {activeTab === "overview" && (  
+          <OverviewScreen />  
+        )}  
+
+        {activeTab === "training" && (  
+          <TrainingScreen  
+            monthList={monthList}  
+            selectedMonth={selectedTrainingMonth}  
+            setSelectedMonth={setSelectedTrainingMonth}  
+            data={currentTrainingData}  
+            openSections={openSections}  
+            toggleSection={toggleSection}  
+          />  
+        )}  
+
+        {activeTab === "diet" && (  
+          <DietScreen  
+            monthList={monthList}  
+            selectedMonth={selectedDietMonth}  
+            setSelectedMonth={setSelectedDietMonth}  
+            data={currentDietData}  
+            openSections={openSections}  
+            toggleSection={toggleSection}  
+          />  
+        )}  
+
+        {activeTab === "progress" && (  
+          <ProgressScreen  
+            weightRecords={weightRecords}  
+            todayWeight={todayWeight}  
+            setTodayWeight={setTodayWeight}  
+            onAddWeight={handleAddWeight}  
+            onRemind={handleRemind}  
+            chartData={getChartData()}  
+          />  
+        )}  
+      </main>  
+
+      {/* 底部导航(模拟移动端常见样式) */}  
+      <nav className="bg-white border-t border-gray-300 flex justify-around text-xs text-gray-500">  
+        <TabButton  
+          label="概览"  
+          icon={<LayoutDashboard size={20} />}  
+          active={activeTab === "overview"}  
+          onClick={() => setActiveTab("overview")}  
+        />  
+        <TabButton  
+          label="训练"  
+          icon={<Dumbbell size={20} />}  
+          active={activeTab === "training"}  
+          onClick={() => setActiveTab("training")}  
+        />  
+        <TabButton  
+          label="饮食"  
+          icon={<Calendar size={20} />}  
+          active={activeTab === "diet"}  
+          onClick={() => setActiveTab("diet")}  
+        />  
+        <TabButton  
+          label="进度"  
+          icon={<BarChart2 size={20} />}  
+          active={activeTab === "progress"}  
+          onClick={() => setActiveTab("progress")}  
+        />  
+      </nav>  
+    </div>  
+  );  
+}  
+
+/* -----------------------------  
+ * Tab 按钮组件  
+ * ----------------------------- */  
+function TabButton({ label, icon, active, onClick }) {  
+  return (  
+    <button  
+      className={`flex flex-col items-center py-2 w-1/4 ${  
+        active ? "text-teal-600 font-semibold" : "text-gray-500"  
+      }`}  
+      onClick={onClick}  
+    >  
+      {icon}  
+      <span className="mt-1">{label}</span>  
+    </button>  
+  );  
+}  
+
+/* -----------------------------  
+ * 概览(Overview) Tab 页面  
+ * ----------------------------- */  
+function OverviewScreen() {  
+  return (  
+    <div className="p-3">  
+      <h2 className="text-xl font-bold text-teal-700 mb-3">欢迎进入你的健身概览</h2>  
+      <p className="text-sm text-gray-700 leading-relaxed">  
+        在这里你可以总览三年的健身规划：通过底部导航可切换查看「训练」「饮食」「进度」等更详细的内容。  
+      </p>  
+      <div className="mt-4 bg-white rounded shadow p-3 border border-gray-100">  
+        <h3 className="text-teal-600 font-semibold mb-2">健康生活小提示</h3>  
+        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">  
+          <li>保持充足睡眠，每天7-8小时，促进恢复和激素平衡。</li>  
+          <li>多摄入蔬菜水果、优质蛋白，合理控制碳水摄入。</li>  
+          <li>高强度训练别忘了做好热身、拉伸和力量练习的组合。</li>  
+          <li>定期记录体重、围度或体脂率，跟踪自己的进度。</li>  
+        </ul>  
+      </div>  
+    </div>  
+  );  
+}  
+
+/* -----------------------------  
+ * 训练(Training) Tab 页面  
+ * ----------------------------- */  
+function TrainingScreen({ monthList, selectedMonth, setSelectedMonth, data, openSections, toggleSection }) {  
+  return (  
+    <div>  
+      <h2 className="text-teal-700 font-bold text-lg mb-3">训练计划</h2>  
+
+      <label className="block mb-2 text-sm font-medium text-gray-600">选择查看月份：</label>  
+      <select  
+        className="border rounded p-2 mb-4"  
+        value={selectedMonth}  
+        onChange={(e) => setSelectedMonth(Number(e.target.value))}  
+      >  
+        {monthList.map((m) => (  
+          <option key={m.value} value={m.value}>  
+            {m.label}  
+          </option>  
+        ))}  
+      </select>  
+
+      <div className="bg-white rounded shadow-sm border border-gray-100 p-3">  
+        <h3 className="text-teal-600 font-semibold text-base mb-2">{data.monthLabel} - 训练安排</h3>  
+        {data.weekPlans.map((week, wIndex) => {  
+          const sectionKey = `training-week-${wIndex}`;  
+          const isOpen = !!openSections[sectionKey];  
+          return (  
+            <div key={wIndex} className="mb-3 border-b last:border-b-0 border-gray-200 pb-2">  
+              <div  
+                className="flex items-center justify-between cursor-pointer"  
+                onClick={() => toggleSection(sectionKey)}  
+              >  
+                <span className="font-semibold text-gray-700">{week.weekLabel}</span>  
+                {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}  
+              </div>  
+              {isOpen && (  
+                <div className="mt-2 space-y-2">  
+                  {week.days.map((day, dIndex) => (  
+                    <div key={dIndex} className="bg-gray-50 rounded p-2">  
+                      <p className="text-sm font-medium text-teal-700">{day.dayTitle}</p>  
+                      <p className="text-xs text-gray-500">器械：{day.machineUsed}</p>  
+                      <p className="text-xs text-gray-500">注意：{day.tips}</p>  
+                    </div>  
+                  ))}  
+                </div>  
+              )}  
+            </div>  
+          );  
+        })}  
+      </div>  
+    </div>  
+  );  
+}  
+
+/* -----------------------------  
+ * 饮食(Diet) Tab 页面  
+ * ----------------------------- */  
+function DietScreen({ monthList, selectedMonth, setSelectedMonth, data, openSections, toggleSection }) {  
+  return (  
+    <div>  
+      <h2 className="text-teal-700 font-bold text-lg mb-3">饮食计划</h2>  
+
+      <label className="block mb-2 text-sm font-medium text-gray-600">选择查看月份：</label>  
+      <select  
+        className="border rounded p-2 mb-4"  
+        value={selectedMonth}  
+        onChange={(e) => setSelectedMonth(Number(e.target.value))}  
+      >  
+        {monthList.map((m) => (  
+          <option key={m.value} value={m.value}>  
+            {m.label}  
+          </option>  
+        ))}  
+      </select>  
+
+      <div className="bg-white rounded shadow-sm border border-gray-100 p-3 mb-4">  
+        <h3 className="text-teal-600 font-semibold text-base mb-2">{data.monthLabel} - 午/晚餐</h3>  
+        {data.dailyMeals.slice(0, 5).map((mealPreview, i) => (  
+          <p key={i} className="text-sm text-gray-600">  
+            {mealPreview.dayLabel}：{mealPreview.lunch} / {mealPreview.dinner}  
+          </p>  
+        ))}  
+        <p className="text-xs text-gray-400 mt-2">* 默认仅展示部分，可点击下方展开查看所有</p>  
+      </div>  
+
+      {/* 每天饮食(折叠) */}  
+      <CollapsibleSection  
+        title="展开查看每日餐单"  
+        sectionKey="diet-dailyMeals"  
+        openSections={openSections}  
+        toggleSection={toggleSection}  
+      >  
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">  
+          {data.dailyMeals.map((meal, idx) => (  
+            <div key={idx} className="bg-gray-50 p-3 rounded flex flex-col">  
+              <p className="text-teal-700 text-sm font-semibold">{meal.dayLabel}</p>  
+              <p className="text-xs text-gray-700 mt-1">  
+                <strong>午餐：</strong>  
+                {meal.lunch}  
+              </p>  
+              <p className="text-xs text-gray-700">  
+                <strong>晚餐：</strong>  
+                {meal.dinner}  
+              </p>  
+              <p className="text-[11px] text-gray-500 mt-1">{meal.detail}</p>  
+            </div>  
+          ))}  
+        </div>  
+      </CollapsibleSection>  
+
+      {/* 每周购物清单(折叠) */}  
+      <CollapsibleSection  
+        title="展开查看每周购物清单"  
+        sectionKey="diet-groceries"  
+        openSections={openSections}  
+        toggleSection={toggleSection}  
+      >  
+        {data.weeklyGroceries.map((wg, i) => (  
+          <div key={i} className="mb-3 bg-gray-50 rounded p-3">  
+            <p className="text-teal-700 font-semibold mb-1">{wg.label}</p>  
+            <ul className="list-disc list-inside text-sm text-gray-700">  
+              {wg.items.map((item, ii) => (  
+                <li key={ii}>{item}</li>  
+              ))}  
+            </ul>  
+          </div>  
+        ))}  
+      </CollapsibleSection>  
+    </div>  
+  );  
+}  
+
+/* -----------------------------  
+ * 进度(Progress) Tab 页面  
+ * ----------------------------- */  
+function ProgressScreen({  
+  weightRecords,  
+  todayWeight,  
+  setTodayWeight,  
+  onAddWeight,  
+  onRemind,  
+  chartData  
+}) {  
+  return (  
+    <div>  
+      <h2 className="text-teal-700 font-bold text-lg mb-3">进度记录</h2>  
+
+      <div className="mb-4 bg-white border border-gray-100 rounded p-3 shadow-sm">  
+        <label className="block mb-1 text-sm font-medium">输入今日体重(kg)：</label>  
+        <div className="flex items-center mb-2">  
+          <input  
+            type="number"  
+            step="0.1"  
+            placeholder="如: 66.5"  
+            value={todayWeight}  
+            onChange={(e) => setTodayWeight(e.target.value)}  
+            className="flex-1 border border-gray-300 rounded-l px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-teal-300"  
+          />  
+          <button  
+            onClick={onAddWeight}  
+            className="bg-teal-500 text-white px-4 py-1.5 rounded-r font-medium hover:bg-teal-600 transition-colors"  
+          >  
+            记录  
+          </button>  
+        </div>  
+        <button  
+          className="bg-teal-500 text-white px-4 py-2 rounded shadow hover:bg-teal-600 transition-colors"  
+          onClick={onRemind}  
+        >  
+          设置锻炼提醒  
+        </button>  
+      </div>  
+
+      {/* 体重列表 */}  
+      <CollapsibleSection  
+        title="查看历史体重记录"  
+        sectionKey="progress-weightList"  
+        openSections={{}}  
+        toggleSection={() => {}}  
+      >  
+        <div className="max-h-40 overflow-y-auto text-sm text-gray-700 space-y-1 mt-2 px-1">  
+          {weightRecords.slice().reverse().map((r, idx) => (  
+            <div key={idx}>  
+              {r.date} - {r.weight} kg  
+            </div>  
+          ))}  
+        </div>  
+      </CollapsibleSection>  
+
+      {/* 体重趋势图 */}  
+      <div className="mt-4 bg-white rounded p-3 shadow-sm border border-gray-100">  
+        <h3 className="text-teal-600 font-semibold mb-2">体重趋势</h3>  
+        <LineChart  
+          width={350}  
+          height={200}  
+          data={chartData}  
+          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}  
+        >  
+          <CartesianGrid strokeDasharray="3 3" />  
+          <XAxis dataKey="name" />  
+          <YAxis />  
+          <Tooltip />  
+          <Legend />  
+          <Line  
+            type="monotone"  
+            dataKey="weight"  
+            stroke="#14b8a6"  
+            strokeWidth={2}  
+            activeDot={{ r: 8 }}  
+          />  
+        </LineChart>  
+      </div>  
+    </div>  
+  );  
+}  
+
+/* -----------------------------  
+ * 可折叠面板(Accordion) 组件  
+ * ----------------------------- */  
+function CollapsibleSection({ title, sectionKey, openSections, toggleSection, children }) {  
+  const isOpen = openSections[sectionKey];  
+  // 如果 toggleSection 未传递，就不再执行(如进度页仅是示例)  
+  const onTitleClick = () => {  
+    if (toggleSection) toggleSection(sectionKey);  
+  };  
+
+  return (  
+    <div className="mb-4 border border-gray-200 rounded p-2 bg-white shadow-sm">  
+      <div  
+        className="flex items-center justify-between cursor-pointer"  
+        onClick={onTitleClick}  
+      >  
+        <span className="text-sm font-semibold text-gray-700">{title}</span>  
+        {toggleSection && (  
+          isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />  
+        )}  
+      </div>  
+      {isOpen && <div className="mt-2">{children}</div>}  
+    </div>  
+  );  
+}  
